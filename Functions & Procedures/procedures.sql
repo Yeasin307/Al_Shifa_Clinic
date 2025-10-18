@@ -25,8 +25,8 @@ BEGIN
 
         -- random date between 2024-01-01 and 2025-10-01
         SET v_appt_dt = ADDDATE('2024-01-01', INTERVAL FLOOR(RAND() * 640) DAY);
-        -- add random time
-        SET v_appt_dt = ADDTIME(v_appt_dt, SEC_TO_TIME(FLOOR(RAND() * 28800))); -- up to 8 hours in seconds
+        -- add a random time with an interval of 15 minutes
+        SET v_appt_dt = v_appt_dt + INTERVAL 8 HOUR + INTERVAL (FLOOR(RAND() * 57) * 15) MINUTE;
 
         -- status random
         IF RAND() < 0.7 THEN
@@ -140,12 +140,16 @@ BEGIN
     DECLARE done INT DEFAULT 0;
 
     treatment_loop: WHILE i < p_count DO
-        -- Random appointment without a treatment
-        SELECT appointment_id INTO v_appt_id
+        -- Select a random appointment that:
+        -- 1. Has status = 'Completed'
+        -- 2. Does not already have a treatment
+        SELECT appointment_id, appointment_date
+        INTO v_appt_id, v_tdate
         FROM Appointment a
-        WHERE NOT EXISTS (
-            SELECT 1 FROM Treatment t WHERE t.appointment_id = a.appointment_id
-        )
+        WHERE a.status = 'Completed'
+          AND NOT EXISTS (
+              SELECT 1 FROM Treatment t WHERE t.appointment_id = a.appointment_id
+          )
         ORDER BY RAND()
         LIMIT 1;
 
@@ -156,9 +160,6 @@ BEGIN
         IF done = 1 THEN
             LEAVE treatment_loop;
         END IF;
-
-        -- Random date within ~2 years from 2024-01-01
-        SET v_tdate = ADDDATE('2024-01-01', INTERVAL FLOOR(RAND() * 640) DAY);
 
         -- Randomized diagnosis summary
         SET v_summary = CONCAT(
